@@ -94,43 +94,51 @@ class StatsClientBase(object):
     def timer(self, stat, rate=1):
         return Timer(self, stat, rate)
 
-    def timing(self, stat, delta, rate=1):
+    def timing(self, stat, delta, rate=1, tags=None):
         """Send new timing information. `delta` is in milliseconds."""
-        self._send_stat(stat, '%0.6f|ms' % delta, rate)
+        self._send_stat(stat, '%0.6f|ms' % delta, rate, tags)
 
-    def incr(self, stat, count=1, rate=1):
+    def incr(self, stat, count=1, rate=1, tags=None):
         """Increment a stat by `count`."""
-        self._send_stat(stat, '%s|c' % count, rate)
+        self._send_stat(stat, '%s|c' % count, rate, tags)
 
-    def decr(self, stat, count=1, rate=1):
+    def decr(self, stat, count=1, rate=1, tags=None):
         """Decrement a stat by `count`."""
-        self.incr(stat, -count, rate)
+        self.incr(stat, -count, rate, tags)
 
-    def gauge(self, stat, value, rate=1, delta=False):
+    def gauge(self, stat, value, rate=1, delta=False, tags=None):
         """Set a gauge value."""
         if value < 0 and not delta:
             if rate < 1:
                 if random.random() > rate:
                     return
             with self.pipeline() as pipe:
-                pipe._send_stat(stat, '0|g', 1)
-                pipe._send_stat(stat, '%s|g' % value, 1)
+                pipe._send_stat(stat, '0|g', 1, tags)
+                pipe._send_stat(stat, '%s|g' % value, 1, tags)
         else:
             prefix = '+' if delta and value >= 0 else ''
-            self._send_stat(stat, '%s%s|g' % (prefix, value), rate)
+            self._send_stat(stat, '%s%s|g' % (prefix, value), rate, tags)
 
-    def set(self, stat, value, rate=1):
+    def set(self, stat, value, rate=1, tags=None):
         """Set a set value."""
-        self._send_stat(stat, '%s|s' % value, rate)
+        self._send_stat(stat, '%s|s' % value, rate, tags)
 
-    def _send_stat(self, stat, value, rate):
-        self._after(self._prepare(stat, value, rate))
+    def _send_stat(self, stat, value, rate, tags=None):
+        self._after(self._prepare(stat, value, rate, tags))
 
-    def _prepare(self, stat, value, rate):
+    def _prepare(self, stat, value, rate, tags=None):
         if rate < 1:
             if random.random() > rate:
                 return
             value = '%s|@%s' % (value, rate)
+
+        if self._tags or tags:
+            tags = tags or {}
+            all_tags = dict(self._tags or {}, **tags)
+            formatted_tags = ','.join([
+                "%s:%s" % (k, v) for k, v in all_tags.items()
+            ])
+            value = '%s|#%s' % (value, formatted_tags)
 
         if self._prefix:
             stat = '%s.%s' % (self._prefix, stat)
@@ -146,7 +154,7 @@ class StatsClient(StatsClientBase):
     """A client for statsd."""
 
     def __init__(self, host='localhost', port=8125, prefix=None,
-                 maxudpsize=512, ipv6=False):
+                 tags=None, maxudpsize=512, ipv6=False):
         """Create a new client."""
         fam = socket.AF_INET6 if ipv6 else socket.AF_INET
         family, _, _, _, addr = socket.getaddrinfo(
@@ -154,6 +162,7 @@ class StatsClient(StatsClientBase):
         self._addr = addr
         self._sock = socket.socket(family, socket.SOCK_DGRAM)
         self._prefix = prefix
+        self._tags = tags
         self._maxudpsize = maxudpsize
 
     def _send(self, data):
@@ -172,13 +181,14 @@ class TCPStatsClient(StatsClientBase):
     """TCP version of StatsClient."""
 
     def __init__(self, host='localhost', port=8125, prefix=None,
-                 timeout=None, ipv6=False):
+                 tags=None, timeout=None, ipv6=False):
         """Create a new client."""
         self._host = host
         self._port = port
         self._ipv6 = ipv6
         self._timeout = timeout
         self._prefix = prefix
+        self._tags = tags
         self._sock = None
 
     def _send(self, data):
@@ -248,6 +258,7 @@ class Pipeline(PipelineBase):
     def __init__(self, client):
         super(Pipeline, self).__init__(client)
         self._maxudpsize = client._maxudpsize
+        self._tags = client._tags
 
     def _send(self):
         data = self._stats.popleft()
@@ -263,6 +274,10 @@ class Pipeline(PipelineBase):
 
 
 class TCPPipeline(PipelineBase):
+
+    def __init__(self, client):
+        super(TCPPipeline, self).__init__(client)
+        self._tags = client._tags
 
     def _send(self):
         self._client._after('\n'.join(self._stats))

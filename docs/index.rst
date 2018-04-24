@@ -7,24 +7,10 @@ Welcome to Python StatsD's documentation!
 =========================================
 
 statsd_ is a friendly front-end to Graphite_. This is a Python client
-for the statsd daemon.
+for the statsd daemon, with added support for tags (as defined in the
+Datadog protocol extension).
 
-.. image:: https://travis-ci.org/jsocol/pystatsd.png?branch=master
-   :target: https://travis-ci.org/jsocol/pystatsd
-   :alt: Travis-CI build status
-
-.. image:: https://pypip.in/v/statsd/badge.png
-   :target: https://pypi.python.org/pypi/statsd/
-   :alt: Latest release
-
-.. image:: https://pypip.in/d/statsd/badge.png
-   :target: https://pypi.python.org/pypi/statsd/
-   :alt: Downloads
-
-:Code:          https://github.com/jsocol/pystatsd
-:License:       MIT; see LICENSE file
-:Issues:        https://github.com/jsocol/pystatsd/issues
-:Documentation: https://statsd.readthedocs.io/
+Forked from https://github.com/jsocol/pystatsd.
 
 Quickly, to use::
 
@@ -33,10 +19,11 @@ Quickly, to use::
     >>> c.incr('foo')  # Increment the 'foo' counter.
     >>> c.timing('stats.timed', 320)  # Record a 320ms 'stats.timed'.
 
-You can also add a prefix to all your stats::
+You can also add a prefix or tags to all your stats::
 
     >>> import statsd
-    >>> c = statsd.StatsClient('localhost', 8125, prefix='foo')
+    >>> c = statsd.StatsClient('localhost', 8125, prefix='foo',
+    ... tags={'environment:production'})
     >>> c.incr('bar')  # Will be 'foo.bar' in statsd/graphite.
 
 
@@ -45,11 +32,7 @@ Installing
 
 The easiest way to install statsd is with pip!
 
-You can install from PyPI::
-
-    $ pip install statsd
-
-Or GitHub::
+From GitHub::
 
     $ pip install -e git+https://github.com/jsocol/pystatsd#egg=statsd
 

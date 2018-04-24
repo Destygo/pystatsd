@@ -5,6 +5,7 @@ Unreleased
 ----------
 
 - Fix timer decorator with partial functions (#85)
+- Add support for tags, as defined in the Datadog statsd protocol extension.
 
 Version 3.2.2
 -------------
