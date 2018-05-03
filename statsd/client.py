@@ -169,7 +169,7 @@ class StatsClient(StatsClientBase):
     def _send(self, data):
         """Send data to statsd."""
         try:
-            self._sock.sendto(data.encode('ascii'), self._addr)
+            self._sock.sendto(data.encode('ascii', 'ignore'), self._addr)
         except (socket.error, RuntimeError):
             # No time for love, Dr. Jones!
             pass
